@@ -43,7 +43,7 @@ pub use helix_core::diagnostic::Severity;
 use helix_core::{
     auto_pairs::AutoPairs,
     syntax::{self, AutoPairConfig, SoftWrap},
-    Change, LineEnding, NATIVE_LINE_ENDING,
+    Change, LineEnding, NATIVE_LINE_ENDING, abbreviations::Abbreviations,
 };
 use helix_core::{Position, Selection};
 use helix_dap as dap;
@@ -950,6 +950,8 @@ pub struct Editor {
     /// field is set and any old requests are automatically
     /// canceled as a result
     pub completion_request_handle: Option<oneshot::Sender<()>>,
+
+    pub abbreviations: Abbreviations
 }
 
 pub type Motion = Box<dyn Fn(&mut Editor)>;
@@ -1062,6 +1064,7 @@ impl Editor {
             needs_redraw: false,
             cursor_cache: Cell::new(None),
             completion_request_handle: None,
+            abbreviations: Abbreviations::default()
         }
     }
 
@@ -1429,6 +1432,7 @@ impl Editor {
             helix_core::Rope::default(),
             Some((encoding, has_bom)),
             self.config.clone(),
+            Some(self.abbreviations.clone())
         );
         let doc_id = self.new_file_from_document(action, doc);
         let doc = doc_mut!(self, &doc_id);
@@ -1455,6 +1459,7 @@ impl Editor {
                 None,
                 Some(self.syn_loader.clone()),
                 self.config.clone(),
+                Some(self.abbreviations.clone())
             )?;
 
             if let Some(diff_base) = self.diff_providers.get_diff_base(&path) {

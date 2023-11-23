@@ -316,6 +316,17 @@ pub mod completers {
     pub fn filename(editor: &Editor, input: &str) -> Vec<Completion> {
         filename_with_git_ignore(editor, input, true)
     }
+    pub fn abbreviations(editor: &Editor, input: &str) -> Vec<Completion> {
+        let doc = doc!(editor);
+        let iter_abbr = &doc.abbreviations.clone();
+
+        let abbrs: Vec<_> = iter_abbr.map().into_iter().map(|(x, _)| x).collect();
+
+        fuzzy_match(input, abbrs, false)
+            .into_iter()
+            .map(|(name, _)| ((0..), name.to_owned().into()))
+            .collect()
+    }
 
     pub fn filename_with_git_ignore(
         editor: &Editor,

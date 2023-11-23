@@ -3,6 +3,7 @@ use arc_swap::access::DynAccess;
 use arc_swap::ArcSwap;
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
+use helix_core::abbreviations::Abbreviations;
 use helix_core::auto_pairs::AutoPairs;
 use helix_core::doc_formatter::TextFormat;
 use helix_core::encoding::Encoding;
@@ -182,6 +183,7 @@ pub struct Document {
 
     diff_handle: Option<DiffHandle>,
     version_control_head: Option<Arc<ArcSwap<Box<str>>>>,
+    pub abbreviations: Abbreviations,
 
     // when document was used for most-recent-used buffer picker
     pub focused_at: std::time::Instant,
@@ -641,6 +643,7 @@ impl Document {
         text: Rope,
         encoding_with_bom_info: Option<(&'static Encoding, bool)>,
         config: Arc<dyn DynAccess<Config>>,
+        abbreviations: Option<Abbreviations>,
     ) -> Self {
         let (encoding, has_bom) = encoding_with_bom_info.unwrap_or((encoding::UTF_8, false));
         let line_ending = config.load().default_line_ending.into();
@@ -673,6 +676,10 @@ impl Document {
             language_servers: HashMap::new(),
             diff_handle: None,
             config,
+            abbreviations: match abbreviations {
+                Some(a) => a,
+                None => Abbreviations::default(),
+            },
             version_control_head: None,
             focused_at: std::time::Instant::now(),
             readonly: false,
@@ -682,7 +689,7 @@ impl Document {
     pub fn default(config: Arc<dyn DynAccess<Config>>) -> Self {
         let line_ending: LineEnding = config.load().default_line_ending.into();
         let text = Rope::from(line_ending.as_str());
-        Self::from(text, None, config)
+        Self::from(text, None, config, None)
     }
 
     // TODO: async fn?
@@ -693,6 +700,7 @@ impl Document {
         encoding: Option<&'static Encoding>,
         config_loader: Option<Arc<syntax::Loader>>,
         config: Arc<dyn DynAccess<Config>>,
+        abbreviations: Option<Abbreviations>
     ) -> Result<Self, Error> {
         // Open the file if it exists, otherwise assume it is a new file (and thus empty).
         let (rope, encoding, has_bom) = if path.exists() {
@@ -705,7 +713,7 @@ impl Document {
             (Rope::from(line_ending.as_str()), encoding, false)
         };
 
-        let mut doc = Self::from(rope, Some((encoding, has_bom)), config);
+        let mut doc = Self::from(rope, Some((encoding, has_bom)), config, abbreviations);
 
         // set the path and try detecting the language
         doc.set_path(Some(path));
@@ -1874,6 +1882,7 @@ mod test {
             text,
             None,
             Arc::new(ArcSwap::new(Arc::new(Config::default()))),
+            None
         );
         let view = ViewId::default();
         doc.set_selection(view, Selection::single(0, 0));
@@ -1912,6 +1921,7 @@ mod test {
             text,
             None,
             Arc::new(ArcSwap::new(Arc::new(Config::default()))),
+            None
         );
         let view = ViewId::default();
         doc.set_selection(view, Selection::single(5, 5));
