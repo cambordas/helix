@@ -5,6 +5,7 @@ use crate::job::Job;
 
 use super::*;
 
+use helix_core::abbreviations::Abbreviations;
 use helix_core::fuzzy::fuzzy_match;
 use helix_core::{encoding, line_ending, path::get_canonicalized_path, shellwords::Shellwords};
 use helix_lsp::{OffsetEncoding, Url};
@@ -2536,15 +2537,13 @@ fn load_abbreviations_from_file(
     }
 
     let doc = doc_mut!(cx.editor);
-    let abbrs = doc.abbreviations.map_mut();
+
     let file_path = PathBuf::from(&args[0].to_string());
-    if let Ok(abbr_file_content) = std::fs::read_to_string(file_path) {
-        // Each line should insert an abbr
-        for line in abbr_file_content.lines() {
-            if let Some(split) = line.split_once(' ') {
-                abbrs.insert(split.0.to_string(), split.1.to_string());
-            }
-        }
+    
+    if file_path.exists() && file_path.is_absolute() {
+        let abbrs = Abbreviations::from(&file_path);
+        doc.abbreviations = abbrs;
+        cx.editor.set_status("Abbreviations loaded");
     } else {
         anyhow::bail!("Unable to read file {}", &args[0]);
     }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use ropey::Rope;
 
@@ -87,5 +87,21 @@ impl Abbreviations {
 
     pub fn remove(&mut self, key: &str) {
         self.0.remove(key);
+    }
+}
+
+impl From<&PathBuf> for Abbreviations {
+    fn from(value: &PathBuf) -> Self {
+        let mut abbr = Self::default();
+
+        if let Ok(abbr_file_content) = std::fs::read_to_string(value) {
+            // Each line should insert an abbr
+            for line in abbr_file_content.lines() {
+                if let Some(split) = line.split_once(' ') {
+                    abbr.insert(split.0, split.1);
+                }
+            }
+        }
+        abbr
     }
 }

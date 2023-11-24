@@ -41,9 +41,10 @@ use anyhow::{anyhow, bail, Error};
 
 pub use helix_core::diagnostic::Severity;
 use helix_core::{
+    abbreviations::Abbreviations,
     auto_pairs::AutoPairs,
     syntax::{self, AutoPairConfig, SoftWrap},
-    Change, LineEnding, NATIVE_LINE_ENDING, abbreviations::Abbreviations,
+    Change, LineEnding, NATIVE_LINE_ENDING,
 };
 use helix_core::{Position, Selection};
 use helix_dap as dap;
@@ -291,6 +292,8 @@ pub struct Config {
     pub insert_final_newline: bool,
     /// Enables smart tab
     pub smart_tab: Option<SmartTabConfig>,
+
+    pub abbreviations_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, PartialOrd, Ord)]
@@ -727,7 +730,7 @@ pub struct WhitespaceCharacters {
 impl Default for WhitespaceCharacters {
     fn default() -> Self {
         Self {
-            space: '·',    // U+00B7
+            space: '·',   // U+00B7
             nbsp: '⍽',    // U+237D
             tab: '→',     // U+2192
             newline: '⏎', // U+23CE
@@ -846,6 +849,7 @@ impl Default for Config {
             default_line_ending: LineEndingConfig::default(),
             insert_final_newline: true,
             smart_tab: Some(SmartTabConfig::default()),
+            abbreviations_file: None,
         }
     }
 }
@@ -951,7 +955,7 @@ pub struct Editor {
     /// canceled as a result
     pub completion_request_handle: Option<oneshot::Sender<()>>,
 
-    pub abbreviations: Abbreviations
+    pub abbreviations: Abbreviations,
 }
 
 pub type Motion = Box<dyn Fn(&mut Editor)>;
@@ -1024,6 +1028,14 @@ impl Editor {
         let conf = config.load();
         let auto_pairs = (&conf.auto_pairs).into();
 
+        let abbreviation_file = &conf.abbreviations_file;
+
+        let abbrs = if let Some(file_path) = abbreviation_file {
+            Abbreviations::from(file_path)
+        } else {
+            Abbreviations::default()
+        };
+
         // HAXX: offset the render area height by 1 to account for prompt/commandline
         area.height -= 1;
 
@@ -1064,7 +1076,7 @@ impl Editor {
             needs_redraw: false,
             cursor_cache: Cell::new(None),
             completion_request_handle: None,
-            abbreviations: Abbreviations::default()
+            abbreviations: abbrs,
         }
     }
 
@@ -1432,7 +1444,7 @@ impl Editor {
             helix_core::Rope::default(),
             Some((encoding, has_bom)),
             self.config.clone(),
-            Some(self.abbreviations.clone())
+            Some(self.abbreviations.clone()),
         );
         let doc_id = self.new_file_from_document(action, doc);
         let doc = doc_mut!(self, &doc_id);
@@ -1459,7 +1471,7 @@ impl Editor {
                 None,
                 Some(self.syn_loader.clone()),
                 self.config.clone(),
-                Some(self.abbreviations.clone())
+                Some(self.abbreviations.clone()),
             )?;
 
             if let Some(diff_base) = self.diff_providers.get_diff_base(&path) {
