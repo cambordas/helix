@@ -36,16 +36,6 @@ impl Abbreviations {
                 return insert(c, cursor);
             }
 
-            // Do not look for previous word if previous char is non-alphanumeric (works for line returns too)
-            match doc.get_char(cursor - 1) {
-                Some(previous_char) => {
-                    if !previous_char.is_alphanumeric() {
-                        return insert(c, cursor);
-                    }
-                }
-                None => return insert(c, cursor),
-            };
-
             // Move 1 char left to be right on the previous word
             let mut current_word_range = Range {
                 anchor: cursor - 1,
@@ -54,6 +44,11 @@ impl Abbreviations {
             };
             current_word_range =
                 movement::move_prev_word_start(doc.slice(..), current_word_range, 1);
+
+            // Early return. Abbreviation should have at least 2 characters
+            if current_word_range.len() < 1 {
+                return insert(c, cursor);
+            }
 
             // Get current word and check if we know it as an abbreviation
             let current_word = doc.slice(current_word_range.head..current_word_range.anchor);
